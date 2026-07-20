@@ -1404,110 +1404,6 @@ def update_update_set(
 
 
 @mcp.tool()
-def update_script_include(
-    sys_id: str,
-    name: str = "",
-    script: str = "",
-    api_name: str = "",
-    description: str = "",
-    client_callable: bool | None = None,
-    active: bool | None = None,
-) -> dict[str, Any]:
-    """Update a Script Include, enforcing naming convention checks for renames."""
-    payload = _update_payload(
-        {
-            "name": _validated_script_include_name(name) if name else "",
-            "script": script,
-            "api_name": api_name,
-            "description": description,
-            "client_callable": client_callable,
-            "active": active,
-        }
-    )
-    if not payload:
-        raise ValueError("At least one field must be provided for update.")
-    result = _client().update_record("sys_script_include", sys_id, payload, allow_protected_tables=True)
-    response = dict(result)
-    if "name" in payload:
-        response["naming_validation"] = _script_include_naming_assessment(str(payload["name"]))
-    return response
-
-
-@mcp.tool()
-def update_business_rule(
-    sys_id: str,
-    name: str = "",
-    table: str = "",
-    script: str = "",
-    when: str = "",
-    filter_condition: str = "",
-    order: int | None = None,
-    active: bool | None = None,
-    advanced: bool | None = None,
-    action_insert: bool | None = None,
-    action_update: bool | None = None,
-    action_delete: bool | None = None,
-    action_query: bool | None = None,
-) -> dict[str, Any]:
-    """Update a Business Rule, enforcing naming convention checks for renames."""
-    payload = _update_payload(
-        {
-            "name": _validated_business_rule_name(name) if name else "",
-            "collection": table,
-            "script": script,
-            "when": when,
-            "filter_condition": filter_condition,
-            "order": order,
-            "active": active,
-            "advanced": advanced,
-            "action_insert": action_insert,
-            "action_update": action_update,
-            "action_delete": action_delete,
-            "action_query": action_query,
-        }
-    )
-    if not payload:
-        raise ValueError("At least one field must be provided for update.")
-    result = _client().update_record("sys_script", sys_id, payload, allow_protected_tables=True)
-    response = dict(result)
-    if "name" in payload:
-        response["naming_validation"] = _business_rule_naming_assessment(str(payload["name"]))
-    return response
-
-
-@mcp.tool()
-def update_client_script(
-    sys_id: str,
-    name: str = "",
-    table: str = "",
-    script: str = "",
-    script_type: str = "",
-    field_name: str = "",
-    ui_type: str = "",
-    active: bool | None = None,
-) -> dict[str, Any]:
-    """Update a Client Script, enforcing naming convention checks for renames."""
-    payload = _update_payload(
-        {
-            "name": _validated_client_script_name(name) if name else "",
-            "table": table,
-            "script": script,
-            "type": script_type,
-            "field": field_name,
-            "ui_type": ui_type,
-            "active": active,
-        }
-    )
-    if not payload:
-        raise ValueError("At least one field must be provided for update.")
-    result = _client().update_record("sys_script_client", sys_id, payload, allow_protected_tables=True)
-    response = dict(result)
-    if "name" in payload:
-        response["naming_validation"] = _client_script_naming_assessment(str(payload["name"]))
-    return response
-
-
-@mcp.tool()
 def advise_integration_architecture(
     problem_statement: str,
     sample_limit: int = 3,
@@ -2167,23 +2063,18 @@ def update_catalog_client_script(
     active: bool | None = None,
 ) -> dict[str, Any]:
     """Update a catalog client script."""
-    payload = _update_payload(
+    return update_record(
+        "catalog_script_client",
+        sys_id,
         {
-            "name": _validated_client_script_name(name) if name else "",
+            "name": name,
             "script": script,
             "type": script_type,
             "applies_to": applies_to,
             "ui_type": ui_type,
             "active": active,
-        }
+        },
     )
-    if not payload:
-        raise ValueError("At least one field must be provided for update.")
-    result = _client().update_record("catalog_script_client", sys_id, payload, allow_protected_tables=True)
-    response = dict(result)
-    if "name" in payload:
-        response["naming_validation"] = _client_script_naming_assessment(str(payload["name"]))
-    return response
 
 
 @mcp.tool()
@@ -2253,10 +2144,8 @@ def create_ui_action(
 
 
 @mcp.tool()
-def delete_record(table: str, sys_id: str, confirm: bool = False) -> dict[str, Any]:
-    """Delete a ServiceNow record by table and sys_id only when explicitly confirmed."""
-    if not confirm:
-        raise ValueError("Deletion requires explicit confirmation. Re-run with confirm=True if you want to delete this record.")
+def delete_record(table: str, sys_id: str) -> dict[str, Any]:
+    """Delete a ServiceNow record by table and sys_id."""
     return _client().delete_record(table, sys_id)
 
 

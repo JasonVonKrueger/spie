@@ -246,15 +246,16 @@ class ServiceNowClient:
         token_url = self._config.oauth_token_url or f"{self._config.instance_url}/oauth_token.do"
         form_data = {
             "grant_type": self._config.oauth_grant_type or "client_credentials",
+            "client_id": self._config.oauth_client_id or "",
+            "client_secret": self._config.oauth_client_secret or "",
         }
         if self._config.oauth_scope:
             form_data["scope"] = self._config.oauth_scope
 
         headers = {"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"}
-        auth = httpx.BasicAuth(self._config.oauth_client_id or "", self._config.oauth_client_secret or "")
 
         try:
-            with httpx.Client(timeout=self._config.timeout, headers=headers, auth=auth) as client:
+            with httpx.Client(timeout=self._config.timeout, headers=headers) as client:
                 response = client.post(token_url, data=form_data)
                 response.raise_for_status()
                 data = response.json()
