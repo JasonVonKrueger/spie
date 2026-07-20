@@ -1682,24 +1682,6 @@ def advise_integration_architecture(
 
 
 @mcp.tool()
-def scan_script_include_redundancy(sample_limit: int = 0) -> dict[str, Any]:
-    """Scan Script Includes for redundant behavior, duplicated bodies, and shared helper signatures."""
-    records = _fetch_script_includes(sample_limit=sample_limit)
-    scan = _script_include_redundancy_scan(records)
-    scan["scanned_records"] = [
-        {
-            "sys_id": _string_value(row.get("sys_id")),
-            "name": _string_value(row.get("name")),
-            "api_name": _string_value(row.get("api_name")),
-            "active": _extract_value(row.get("active")),
-            "client_callable": _extract_value(row.get("client_callable")),
-        }
-        for row in records
-    ]
-    return scan
-
-
-@mcp.tool()
 def create_script_include(
     name: str,
     script: str,
