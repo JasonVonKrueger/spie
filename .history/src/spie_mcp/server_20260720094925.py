@@ -705,55 +705,13 @@ def _governance_assessment(
 def _integration_request_flags(integration_request: str) -> dict[str, bool]:
     text = _normalized_phrase(integration_request).lower()
     return {
+        "sap": _contains_any(text, ["sap", "ecc", "s/4", "s4", "s4hana", "idoc", "odata"]),
         "batch": _contains_any(text, ["batch", "file", "csv", "flat file", "scheduled", "import set", "etl"]),
         "real_time": _contains_any(text, ["real time", "real-time", "near real-time", "event", "sync", "immediate"]),
         "oauth": _contains_any(text, ["oauth", "bearer", "token", "sso"]),
         "mid_network": _contains_any(text, ["mid", "mid server", "on-prem", "private network", "firewall"]),
         "api": _contains_any(text, ["rest", "soap", "api", "odata", "web service"]),
-        "message_based": _contains_any(text, ["soap", "web service", "message", "payload"]),
     }
-
-
-def _integration_keywords(integration_request: str) -> list[str]:
-    stopwords = {
-        "and",
-        "any",
-        "api",
-        "application",
-        "build",
-        "for",
-        "from",
-        "how",
-        "i",
-        "in",
-        "integrate",
-        "integration",
-        "need",
-        "of",
-        "product",
-        "service",
-        "servicenow",
-        "should",
-        "the",
-        "to",
-        "with",
-        "what",
-    }
-    keywords: list[str] = []
-    for token in re.split(r"[^A-Za-z0-9]+", _normalized_phrase(integration_request).lower()):
-        token = token.strip()
-        if len(token) < 3 or token in stopwords:
-            continue
-        if token not in keywords:
-            keywords.append(token)
-    return keywords[:5]
-
-
-def _integration_target_name(integration_request: str) -> str:
-    keywords = _integration_keywords(integration_request)
-    if not keywords:
-        return ""
-    return keywords[0]
 
 
 def _project_record(row: dict[str, Any], fields: list[str]) -> dict[str, Any]:
@@ -810,9 +768,7 @@ def _collect_architecture_signal(
         }
 
 
-def _integration_architecture_signals(problem_statement: str, sample_limit: int) -> list[dict[str, Any]]:
-    keywords = _integration_keywords(problem_statement)
-    keyword_query = _analysis_query(["name", "description", "endpoint", "source_table", "target_table"], keywords) if keywords else None
+def _sap_architecture_signals(problem_statement: str, sample_limit: int) -> list[dict[str, Any]]:
     client = _client()
     return [
         _collect_architecture_signal(
@@ -834,29 +790,11 @@ def _integration_architecture_signals(problem_statement: str, sample_limit: int)
         ),
         _collect_architecture_signal(
             client=client,
-            key="integration_actions",
-            label="Integration Actions",
+            key="sap_spokes",
+            label="SAP Spokes",
             table="sys_hub_action_type_definition",
             fields=["name", "description", "active"],
-            query=keyword_query,
-            sample_limit=sample_limit,
-        ),
-        _collect_architecture_signal(
-            client=client,
-            key="rest_messages",
-            label="REST Messages",
-            table="sys_rest_message",
-            fields=["name", "endpoint", "authentication_type", "active"],
-            query=keyword_query,
-            sample_limit=sample_limit,
-        ),
-        _collect_architecture_signal(
-            client=client,
-            key="soap_messages",
-            label="SOAP Messages",
-            table="sys_ws_definition",
-            fields=["name", "endpoint", "active"],
-            query=keyword_query,
+            query="nameLIKESAP^ORdescriptionLIKESAP",
             sample_limit=sample_limit,
         ),
         _collect_architecture_signal(
@@ -865,7 +803,6 @@ def _integration_architecture_signals(problem_statement: str, sample_limit: int)
             label="OAuth Providers",
             table="sys_oauth_provider",
             fields=["name", "grant_type", "active"],
-            query=keyword_query,
             sample_limit=sample_limit,
         ),
         _collect_architecture_signal(
@@ -874,7 +811,6 @@ def _integration_architecture_signals(problem_statement: str, sample_limit: int)
             label="Import Sets",
             table="sys_import_set",
             fields=["name", "state", "sys_created_on"],
-            query=keyword_query,
             sample_limit=sample_limit,
         ),
         _collect_architecture_signal(
@@ -883,7 +819,6 @@ def _integration_architecture_signals(problem_statement: str, sample_limit: int)
             label="Transform Maps",
             table="sys_transform_map",
             fields=["name", "source_table", "target_table", "active"],
-            query=keyword_query,
             sample_limit=sample_limit,
         ),
         _collect_architecture_signal(
@@ -908,27 +843,6 @@ def _first_available_sample(areas: list[dict[str, Any]], key: str) -> dict[str, 
     return None
 
 
-def _architecture_matched_assets(signals: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    matched: list[dict[str, Any]] = []
-    for area in signals:
-        if not area.get("available"):
-            continue
-        samples = area.get("samples", [])
-        if not isinstance(samples, list):
-            continue
-        for sample in samples:
-            if not isinstance(sample, dict):
-                continue
-            matched.append(
-                {
-                    "category": area.get("label"),
-                    "sys_id": sample.get("sys_id", ""),
-                    "name": sample.get("name") or sample.get("title") or sample.get("endpoint") or "",
-                }
-            )
-    return matched[:12]
-
-
 def _recommend_integration_architecture(
     problem_statement: str,
     signals: list[dict[str, Any]],
@@ -940,21 +854,15 @@ def _recommend_integration_architecture(
     flags = _integration_request_flags(problem_statement)
     mid_servers = summary.get("mid_servers", 0)
     integrationhub_plugins = summary.get("integrationhub_plugins", 0)
-    integration_actions = summary.get("integration_actions", 0)
-    rest_messages = summary.get("rest_messages", 0)
-    soap_messages = summary.get("soap_messages", 0)
+    sap_spokes = summary.get("sap_spokes", 0)
     oauth_providers = summary.get("oauth_providers", 0)
     import_sets = summary.get("import_sets", 0)
     transform_maps = summary.get("transform_maps", 0)
-    target_name = _integration_target_name(problem_statement)
 
     ecc_sample = _first_available_sample(signals, "ecc_properties")
     ecc_version_signal = ""
     if ecc_sample:
         ecc_version_signal = ecc_sample.get("value", "") or ecc_sample.get("description", "")
-
-    matched_assets = _architecture_matched_assets(signals)
-    has_target_specific_assets = any(target_name and target_name.lower() in str(asset.get("name", "")).lower() for asset in matched_assets)
 
     if flags["batch"] or import_sets > 0 and not flags["real_time"]:
         architecture = {
@@ -979,71 +887,71 @@ def _recommend_integration_architecture(
                 "Overlapping schedules can duplicate imports if controls are weak.",
             ],
         }
-    elif integrationhub_plugins > 0 and mid_servers > 0 and (integration_actions > 0 or rest_messages > 0 or soap_messages > 0):
+    elif sap_spokes > 0 and integrationhub_plugins > 0 and mid_servers > 0:
         architecture = {
-            "name": "IntegrationHub + MID Server",
-            "pattern": "Use IntegrationHub with a MID Server for secure connectivity to the target system.",
+            "name": "IntegrationHub SAP Spoke + MID Server",
+            "pattern": "Use IntegrationHub SAP spokes over a MID Server for secure connectivity to SAP.",
             "why": [
-                "The instance already has an active MID Server signal and integration action coverage, which is the lowest-friction reusable path.",
-                "IntegrationHub plus MID Server is the best fit when the target is on-prem or behind network boundaries.",
+                "The instance already has an active MID Server signal and SAP spoke coverage, which is the lowest-friction reusable path.",
+                "IntegrationHub plus MID Server is the best fit when SAP is on-prem or behind network boundaries.",
             ],
             "prerequisites": [
                 "Confirm the IntegrationHub entitlement or plugin signal in the instance.",
                 "Verify MID Server health, version, and network reachability.",
-                "Map the target system operation to the spoke or action surface before coding custom integrations.",
+                "Map the SAP business object to the spoke action surface before coding custom integrations.",
             ],
             "implementation_sequence": [
-                "Use the existing spoke or integration action if it matches the business operation.",
+                "Use the existing SAP spoke action if it matches the business operation.",
                 "Route calls through MID Server for network isolation and credential containment.",
                 "Wrap the spoke invocation in Flow Designer or Script Includes for reuse.",
             ],
             "risks": [
-                "If the target behavior diverges from the available action, custom orchestration may still be needed.",
+                "If SAP behavior diverges from the spoke action, custom orchestration may still be needed.",
                 "MID Server outages will block real-time requests unless you design a fallback path.",
             ],
         }
-    elif integrationhub_plugins > 0 and (integration_actions > 0 or rest_messages > 0 or soap_messages > 0):
+    elif sap_spokes > 0 and integrationhub_plugins > 0:
         architecture = {
-            "name": "IntegrationHub with MID Server Gap",
-            "pattern": "Use IntegrationHub, but add a MID Server before production if the target is not directly reachable.",
+            "name": "IntegrationHub SAP Spoke with MID Server Gap",
+            "pattern": "Use IntegrationHub SAP spokes, but add a MID Server before production if SAP is not directly reachable.",
             "why": [
-                "The instance shows integration coverage and IntegrationHub, but no MID Server signal.",
-                "For targets behind internal firewalls, the MID Server is usually the missing transport layer.",
+                "The instance shows spoke coverage and IntegrationHub, but no MID Server signal.",
+                "For SAP landscapes behind internal firewalls, the MID Server is usually the missing transport layer.",
             ],
             "prerequisites": [
                 "Install or validate a MID Server.",
                 "Confirm network path, certificates, and outbound trust.",
             ],
             "implementation_sequence": [
-                "Prototype the spoke or action flow in a dev instance.",
+                "Prototype the spoke flow in a dev instance.",
                 "Add the MID Server and verify connectivity.",
                 "Promote the reusable orchestration once network access is proven.",
             ],
             "risks": [
-                "A spoke or action without transport does not solve connectivity by itself.",
-                "Direct connectivity assumptions can break in on-prem target environments.",
+                "A spoke without transport does not solve connectivity by itself.",
+                "Direct connectivity assumptions can break in on-prem SAP environments.",
             ],
         }
     elif oauth_providers > 0 and flags["api"]:
         architecture = {
-            "name": "REST/SOAP API Integration with OAuth",
+            "name": "REST/OData API Integration with OAuth",
             "pattern": "Use direct API integration with OAuth-based authentication, then add MID Server only if network constraints require it.",
             "why": [
                 "OAuth provider signals exist in the instance, so secure token-based integration is already plausible.",
-                "This is the best fit when the target exposes REST or SOAP endpoints and the network path is reachable.",
+                "This is the best fit when SAP exposes REST or OData endpoints and the network path is reachable.",
             ],
             "prerequisites": [
-                "Register the target endpoint and confirm auth flow.",
+                "Register the SAP endpoint and confirm auth flow.",
                 "Use a credential strategy instead of hard-coded secrets.",
                 "Add retries, timeouts, and correlation IDs for observability.",
             ],
             "implementation_sequence": [
-                "Call the target system through a scoped integration layer or Script Include.",
+                "Call SAP through a scoped integration layer or Script Include.",
                 "Use OAuth or bearer-token handling from a secure credential store.",
                 "Orchestrate retries and error handling in Flow Designer or server-side code.",
             ],
             "risks": [
-                "If the target is not directly reachable, you will still need a MID Server.",
+                "If SAP is not directly reachable, you will still need a MID Server.",
                 "Synchronous API calls can become brittle without careful timeout design.",
             ],
         }
@@ -1053,10 +961,10 @@ def _recommend_integration_architecture(
             "pattern": "Start with the smallest transport that matches the instance, then add MID Server, spokes, or batch processing only where needed.",
             "why": [
                 "The instance signals are incomplete or mixed, so a rigid pattern would be premature.",
-                "This path keeps the design flexible while you validate connectivity and data shape.",
+                "This path keeps the design flexible while you validate SAP connectivity and data shape.",
             ],
             "prerequisites": [
-                "Confirm whether the target is on-prem, cloud, or mixed.",
+                "Confirm whether SAP is on-prem, cloud, or mixed.",
                 "Validate whether the process is real-time or batch.",
                 "Identify whether the instance already has reusable spokes, transforms, or OAuth providers.",
             ],
@@ -1071,44 +979,23 @@ def _recommend_integration_architecture(
             ],
         }
 
-    evidence_labels = [
-        area["label"]
-        for area in signals
-        if area.get("available") and int(area.get("count", 0)) > 0
-    ]
-    confidence = "medium"
-    if architecture["name"] == "Import Sets + Transform Maps + Flow Designer" and import_sets > 0 and transform_maps > 0:
-        confidence = "high"
-    elif architecture["name"] in {"IntegrationHub + MID Server", "REST/SOAP API Integration with OAuth"} and (
-        (integrationhub_plugins > 0 and mid_servers > 0) or (oauth_providers > 0 and (rest_messages > 0 or soap_messages > 0))
-    ):
-        confidence = "high"
-    elif has_target_specific_assets:
-        confidence = "high"
-
     return {
         "problem_statement": _normalized_phrase(problem_statement),
-        "target_name": target_name,
         "signals": {
             "mid_servers": mid_servers,
             "integrationhub_plugins": integrationhub_plugins,
-            "integration_actions": integration_actions,
-            "rest_messages": rest_messages,
-            "soap_messages": soap_messages,
+            "sap_spokes": sap_spokes,
             "oauth_providers": oauth_providers,
             "import_sets": import_sets,
             "transform_maps": transform_maps,
             "ecc_version_signal": ecc_version_signal,
             "intent_flags": flags,
         },
-        "matched_assets": matched_assets,
-        "decision_basis": evidence_labels,
-        "confidence": confidence,
         "recommended_architecture": architecture,
         "alternatives": [
             "Import Sets + Transform Maps + Flow Designer",
-            "IntegrationHub + MID Server",
-            "REST/SOAP API Integration with OAuth",
+            "IntegrationHub SAP Spoke + MID Server",
+            "REST/OData API Integration with OAuth",
         ],
     }
 
@@ -1290,7 +1177,7 @@ def advise_integration_architecture(
     sample_limit: int = 3,
 ) -> dict[str, Any]:
     """Recommend a ServiceNow integration architecture by inspecting instance signals."""
-    signals = _integration_architecture_signals(problem_statement, sample_limit)
+    signals = _sap_architecture_signals(problem_statement, sample_limit)
     recommendation = _recommend_integration_architecture(problem_statement, signals)
     return {
         **recommendation,

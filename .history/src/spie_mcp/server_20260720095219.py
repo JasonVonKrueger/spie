@@ -749,13 +749,6 @@ def _integration_keywords(integration_request: str) -> list[str]:
     return keywords[:5]
 
 
-def _integration_target_name(integration_request: str) -> str:
-    keywords = _integration_keywords(integration_request)
-    if not keywords:
-        return ""
-    return keywords[0]
-
-
 def _project_record(row: dict[str, Any], fields: list[str]) -> dict[str, Any]:
     sample: dict[str, Any] = {"sys_id": _string_value(row.get("sys_id"))}
     for field in fields:
@@ -812,7 +805,7 @@ def _collect_architecture_signal(
 
 def _integration_architecture_signals(problem_statement: str, sample_limit: int) -> list[dict[str, Any]]:
     keywords = _integration_keywords(problem_statement)
-    keyword_query = _analysis_query(["name", "description", "endpoint", "source_table", "target_table"], keywords) if keywords else None
+    keyword_query = _analysis_query(["name", "description", "endpoint"], keywords) if keywords else None
     client = _client()
     return [
         _collect_architecture_signal(
@@ -865,7 +858,6 @@ def _integration_architecture_signals(problem_statement: str, sample_limit: int)
             label="OAuth Providers",
             table="sys_oauth_provider",
             fields=["name", "grant_type", "active"],
-            query=keyword_query,
             sample_limit=sample_limit,
         ),
         _collect_architecture_signal(
@@ -874,7 +866,6 @@ def _integration_architecture_signals(problem_statement: str, sample_limit: int)
             label="Import Sets",
             table="sys_import_set",
             fields=["name", "state", "sys_created_on"],
-            query=keyword_query,
             sample_limit=sample_limit,
         ),
         _collect_architecture_signal(
@@ -883,7 +874,6 @@ def _integration_architecture_signals(problem_statement: str, sample_limit: int)
             label="Transform Maps",
             table="sys_transform_map",
             fields=["name", "source_table", "target_table", "active"],
-            query=keyword_query,
             sample_limit=sample_limit,
         ),
         _collect_architecture_signal(
@@ -908,27 +898,6 @@ def _first_available_sample(areas: list[dict[str, Any]], key: str) -> dict[str, 
     return None
 
 
-def _architecture_matched_assets(signals: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    matched: list[dict[str, Any]] = []
-    for area in signals:
-        if not area.get("available"):
-            continue
-        samples = area.get("samples", [])
-        if not isinstance(samples, list):
-            continue
-        for sample in samples:
-            if not isinstance(sample, dict):
-                continue
-            matched.append(
-                {
-                    "category": area.get("label"),
-                    "sys_id": sample.get("sys_id", ""),
-                    "name": sample.get("name") or sample.get("title") or sample.get("endpoint") or "",
-                }
-            )
-    return matched[:12]
-
-
 def _recommend_integration_architecture(
     problem_statement: str,
     signals: list[dict[str, Any]],
@@ -946,15 +915,11 @@ def _recommend_integration_architecture(
     oauth_providers = summary.get("oauth_providers", 0)
     import_sets = summary.get("import_sets", 0)
     transform_maps = summary.get("transform_maps", 0)
-    target_name = _integration_target_name(problem_statement)
 
     ecc_sample = _first_available_sample(signals, "ecc_properties")
     ecc_version_signal = ""
     if ecc_sample:
         ecc_version_signal = ecc_sample.get("value", "") or ecc_sample.get("description", "")
-
-    matched_assets = _architecture_matched_assets(signals)
-    has_target_specific_assets = any(target_name and target_name.lower() in str(asset.get("name", "")).lower() for asset in matched_assets)
 
     if flags["batch"] or import_sets > 0 and not flags["real_time"]:
         architecture = {
@@ -1071,24 +1036,8 @@ def _recommend_integration_architecture(
             ],
         }
 
-    evidence_labels = [
-        area["label"]
-        for area in signals
-        if area.get("available") and int(area.get("count", 0)) > 0
-    ]
-    confidence = "medium"
-    if architecture["name"] == "Import Sets + Transform Maps + Flow Designer" and import_sets > 0 and transform_maps > 0:
-        confidence = "high"
-    elif architecture["name"] in {"IntegrationHub + MID Server", "REST/SOAP API Integration with OAuth"} and (
-        (integrationhub_plugins > 0 and mid_servers > 0) or (oauth_providers > 0 and (rest_messages > 0 or soap_messages > 0))
-    ):
-        confidence = "high"
-    elif has_target_specific_assets:
-        confidence = "high"
-
     return {
         "problem_statement": _normalized_phrase(problem_statement),
-        "target_name": target_name,
         "signals": {
             "mid_servers": mid_servers,
             "integrationhub_plugins": integrationhub_plugins,
@@ -1101,9 +1050,6 @@ def _recommend_integration_architecture(
             "ecc_version_signal": ecc_version_signal,
             "intent_flags": flags,
         },
-        "matched_assets": matched_assets,
-        "decision_basis": evidence_labels,
-        "confidence": confidence,
         "recommended_architecture": architecture,
         "alternatives": [
             "Import Sets + Transform Maps + Flow Designer",
