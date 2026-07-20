@@ -334,32 +334,6 @@ def _function_similarity(left_body: str, right_body: str) -> float:
     return SequenceMatcher(None, left_body, right_body).ratio()
 
 
-def _is_trivial_function_signature(function_name: str, normalized_body: str) -> bool:
-    boilerplate_names = {
-        "constructor",
-        "initialize",
-        "onchange",
-        "onload",
-        "onsubmit",
-        "oncellchange",
-        "type",
-        "validate",
-        "isvalid",
-    }
-    if function_name.strip().lower() in boilerplate_names:
-        return True
-
-    token_count = len(normalized_body.split())
-    if token_count < 18:
-        return True
-
-    statement_markers = normalized_body.count(";") + normalized_body.count("{") + normalized_body.count("}")
-    if statement_markers < 4:
-        return True
-
-    return False
-
-
 def _chunk_script_includes(records: list[dict[str, Any]], chunk_size: int = 200) -> list[list[dict[str, Any]]]:
     chunks: list[list[dict[str, Any]]] = []
     for index in range(0, len(records), chunk_size):
@@ -421,7 +395,7 @@ def _script_include_redundancy_scan(records: list[dict[str, Any]]) -> dict[str, 
         script_text = _script_include_script_text(row)
         for block in _script_include_function_blocks(script_text):
             normalized_body = _normalize_function_body(block["body"])
-            if not normalized_body or _is_trivial_function_signature(block["name"], normalized_body):
+            if not normalized_body:
                 continue
             function_entries.append(
                 {
@@ -443,11 +417,11 @@ def _script_include_redundancy_scan(records: list[dict[str, Any]]) -> dict[str, 
         for right in function_entries[index + 1 :]:
             if left["include"]["sys_id"] == right["include"]["sys_id"]:
                 continue
-            if abs(left["body_length"] - right["body_length"]) > max(left["body_length"], right["body_length"], 1) * 0.45:
+            if abs(left["body_length"] - right["body_length"]) > max(left["body_length"], right["body_length"], 1) * 0.65:
                 continue
 
             similarity = _function_similarity(left["normalized_body"], right["normalized_body"])
-            if similarity < 0.88:
+            if similarity < 0.82:
                 continue
 
             pair_key = (
@@ -557,7 +531,6 @@ def _script_include_redundancy_scan(records: list[dict[str, Any]]) -> dict[str, 
             "Consolidate exact duplicate Script Includes into a single reusable implementation.",
             "Prefer a shared helper or service Script Include when multiple records expose the same public API or helper signatures.",
             "Extract repeated function bodies into a common helper Script Include when different records implement the same or very similar logic.",
-            "Ignore trivial constructors and simple pass-through methods unless they also contain meaningful business logic.",
             "Use the same naming and api_name only when you intend a single canonical implementation.",
         ],
     }
