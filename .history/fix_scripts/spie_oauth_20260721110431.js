@@ -1,16 +1,17 @@
 (function executeFixScript() {
-    // Centralized defaults so this script can be re-run safely with controlled values.
     const CONFIG = {
         name: 'SPIE MCP Server',
         comments: 'OAuth application registry for the SPIE MCP server connection to ServiceNow.',
         grantType: 'client_credentials',
+        redirectUrl: '',
+        clientId: '',
+        clientSecret: '',
         clientType: 'integration_as_a_service',
         active: true,
         accessTokenLifespanSeconds: 1800,
         refreshTokenLifespanSeconds: 86400
     };
 
-    // Inbound client-credentials must be enabled or the registry cannot be used as intended.
 	if (!checkForInboundOauthProp()) {
 		gs.error('System property glide.oauth.inbound.client.credential.grant_type.enabled not enabled.');
 		return;
@@ -23,7 +24,6 @@
         return;
     }
 
-    // Upsert by name: update existing registry if found, otherwise create one.
     var registry = findExistingRegistry(CONFIG.name);
     var isInsert = !registry;
 
@@ -32,13 +32,14 @@
         registry.initialize();
     }
 
-    // Generate credentials if none were provided through CONFIG.
     var generatedClientId = CONFIG.clientId || generateToken();
     var generatedClientSecret = CONFIG.clientSecret || generateToken() + generateToken();
 
-    // Field names vary across releases/plugins, so set the first valid field from each alias list.
     assignFirstValid(registry, ['name'], CONFIG.name);
     assignFirstValid(registry, ['comments'], CONFIG.comments);
+    assignFirstValid(registry, ['client_id'], generatedClientId);
+    assignFirstValid(registry, ['client_secret'], generatedClientSecret);
+    assignFirstValid(registry, ['redirect_url', 'redirect_urls'], CONFIG.redirectUrl);
     assignFirstValid(registry, ['grant_type', 'grant_types', 'default_grant_type'], CONFIG.grantType);
     assignFirstValid(registry, ['access_token_lifespan'], String(CONFIG.accessTokenLifespanSeconds));
     assignFirstValid(registry, ['refresh_token_lifespan'], String(CONFIG.refreshTokenLifespanSeconds));
@@ -51,7 +52,6 @@
         return;
     }
 
-    // These values are emitted so the operator can capture generated credentials once.
     gs.info('SPIE OAuth application registry ' + (isInsert ? 'created' : 'updated') + '.');
     gs.info('Name: ' + CONFIG.name);
     gs.info('Sys ID: ' + sysId);
@@ -75,7 +75,6 @@
     }
 
     function assignFirstValid(gr, fieldNames, value) {
-        // Skip empty values so reruns do not accidentally blank fields.
         if (value === '' || value === null || typeof value === 'undefined') {
             return;
         }
@@ -91,7 +90,6 @@
     }
 
     function generateToken() {
-        // Use GUID material without dashes for OAuth-friendly random strings.
         return gs.generateGUID().replace(/-/g, '');
     }
 })();

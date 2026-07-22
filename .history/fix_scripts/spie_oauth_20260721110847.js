@@ -2,8 +2,11 @@
     // Centralized defaults so this script can be re-run safely with controlled values.
     const CONFIG = {
         name: 'SPIE MCP Server',
-        comments: 'OAuth application registry for the SPIE MCP server connection to ServiceNow.',
+        comments: 'blah blh',
         grantType: 'client_credentials',
+        redirectUrl: '',
+        clientId: '',
+        clientSecret: '',
         clientType: 'integration_as_a_service',
         active: true,
         accessTokenLifespanSeconds: 1800,
@@ -39,6 +42,9 @@
     // Field names vary across releases/plugins, so set the first valid field from each alias list.
     assignFirstValid(registry, ['name'], CONFIG.name);
     assignFirstValid(registry, ['comments'], CONFIG.comments);
+    assignFirstValid(registry, ['client_id'], generatedClientId);
+    assignFirstValid(registry, ['client_secret'], generatedClientSecret);
+    assignFirstValid(registry, ['redirect_url', 'redirect_urls'], CONFIG.redirectUrl);
     assignFirstValid(registry, ['grant_type', 'grant_types', 'default_grant_type'], CONFIG.grantType);
     assignFirstValid(registry, ['access_token_lifespan'], String(CONFIG.accessTokenLifespanSeconds));
     assignFirstValid(registry, ['refresh_token_lifespan'], String(CONFIG.refreshTokenLifespanSeconds));
