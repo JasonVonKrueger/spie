@@ -28,6 +28,12 @@ PROTECTED_UPDATE_TABLES = {
     "catalog_script_client",
 }
 
+DELETION_DISABLED_MESSAGE = (
+    "Deletion is disabled in this MCP server for safety. "
+    "Use ServiceNow UI/admin-controlled processes for any record cleanup."
+)
+
+
 class ServiceNowError(RuntimeError):
     """Raised when the ServiceNow API returns an error."""
 
@@ -189,6 +195,9 @@ class ServiceNowClient:
                 f"Direct {table} updates are blocked. Use the dedicated strict server flow so naming convention validation is enforced."
             )
         return self._request("PATCH", f"/api/now/table/{table}/{sys_id}", json=payload)
+
+    def delete_record(self, table: str, sys_id: str) -> dict[str, Any]:
+        raise ServiceNowError(DELETION_DISABLED_MESSAGE)
 
     def _request(
         self,
