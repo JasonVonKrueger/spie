@@ -1,7 +1,7 @@
 # ServiceNow Platform Intelligence Engine (SPIE)
 
 <p align="center">
-  <img src="docs/logo/logo.png" alt="SPIE" />
+  <img src="docs/logo/logo.png" alt="SPIE" style="width: 400px; height: auto;"/>
 </p>
 
 This project provides a Python-based MCP server for ServiceNow.
