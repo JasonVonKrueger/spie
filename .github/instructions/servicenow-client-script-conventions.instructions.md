@@ -8,3 +8,4 @@ description: "Use when creating or modifying ServiceNow client scripts or catalo
 - Use client scripts only when the behavior must happen in the browser.
 - Prefer UI Policies for simple visibility and mandatory logic.
 - Keep client scripts fast, readable, and narrowly scoped.
+- Never use server-side APIs in client scripts; use GlideAjax and Script Includes for server-side logic.

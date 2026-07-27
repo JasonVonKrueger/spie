@@ -23,4 +23,8 @@ The server supports three authentication modes, in order of preference when valu
 
 For the client-credentials path, the server requests an access token from ServiceNow and then uses that token for subsequent API calls. A separate fix script is available at [fix_scripts/spie_oauth.js](../fix_scripts/spie_oauth.js) to create or update the matching OAuth application registry.
 
-See [docs/oauth_flow.md](oauth_flow.md) for a simple visual of the request flow.
+## Bearer Token Request Headers
+
+When `SERVICENOW_BEARER_TOKEN` is configured, the client sends this header on ServiceNow API requests:
+
+- `Authorization: Bearer <token>`
