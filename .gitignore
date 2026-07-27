@@ -9,3 +9,4 @@ build/
 *.pyo
 *.pyd
 .env
+.history/

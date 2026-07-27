@@ -741,7 +741,7 @@ def _artifact_naming_checks(parsed_artifacts: list[dict[str, str]]) -> list[dict
                 passed=passed,
                 weight=8,
                 detail=f"Script Include '{name}' should follow CompanyPrefixFeatureHelper/Service/Validator naming.",
-                standard="ServiceNow Governance Standards > Script Includes",
+                standard="ServiceNow Script Include Conventions",
             )
         elif artifact_type == "business_rule":
             passed = name.count(" - ") >= 2
@@ -751,7 +751,7 @@ def _artifact_naming_checks(parsed_artifacts: list[dict[str, str]]) -> list[dict
                 passed=passed,
                 weight=8,
                 detail=f"Business Rule '{name}' should follow '<Table> - <Trigger or Outcome> - <Short Purpose>'.",
-                standard="ServiceNow Governance Standards > Business Rules",
+                standard="ServiceNow Business Rule Conventions",
             )
         elif artifact_type in {"client_script", "catalog_client_script"}:
             passed = name.count(" - ") >= 2
@@ -761,7 +761,7 @@ def _artifact_naming_checks(parsed_artifacts: list[dict[str, str]]) -> list[dict
                 passed=passed,
                 weight=7,
                 detail=f"Client script '{name}' should follow '<Table or Item> - <Behavior> - <Purpose>'.",
-                standard="ServiceNow Governance Standards > Client Scripts and Catalog Client Scripts",
+                standard="ServiceNow Client Script Conventions",
             )
         elif artifact_type == "catalog_item":
             passed = name.count(" - ") >= 1
@@ -771,7 +771,7 @@ def _artifact_naming_checks(parsed_artifacts: list[dict[str, str]]) -> list[dict
                 passed=passed,
                 weight=7,
                 detail=f"Catalog item '{name}' should follow '<Category> - <Request Name>'.",
-                standard="ServiceNow Governance Standards > Catalog Items",
+                standard="ServiceNow Catalog Item Conventions",
             )
         elif artifact_type == "ui_action":
             passed = name.count(" - ") >= 1
@@ -781,17 +781,17 @@ def _artifact_naming_checks(parsed_artifacts: list[dict[str, str]]) -> list[dict
                 passed=passed,
                 weight=6,
                 detail=f"UI Action '{name}' should follow '<Table> - <Action Name>'.",
-                standard="ServiceNow Governance Standards > UI Actions and UI Pages",
+                standard="ServiceNow UI Action And UI Page Conventions",
             )
         elif artifact_type == "ui_page":
-            passed = name.endswith(" Page")
+            passed = len(name.strip()) >= 4 and "page" in name.lower()
             _score_check(
                 checks,
                 name=f"{artifact_type} naming",
                 passed=passed,
                 weight=6,
-                detail=f"UI Page '{name}' should end with 'Page'.",
-                standard="ServiceNow Governance Standards > UI Actions and UI Pages",
+                detail=f"UI Page '{name}' should use a concise purpose-driven page name.",
+                standard="ServiceNow UI Action And UI Page Conventions",
             )
         elif artifact_type == "atf_test":
             passed = name.startswith("ATF - ")
@@ -801,7 +801,7 @@ def _artifact_naming_checks(parsed_artifacts: list[dict[str, str]]) -> list[dict
                 passed=passed,
                 weight=8,
                 detail=f"ATF test '{name}' should start with 'ATF - '.",
-                standard="ServiceNow Governance Standards > ATF Tests",
+                standard="ServiceNow ATF Conventions",
             )
         elif artifact_type == "system_property":
             passed = bool(re.fullmatch(r"[a-z0-9]+(?:\.[a-z0-9_]+)+", name))
@@ -811,7 +811,7 @@ def _artifact_naming_checks(parsed_artifacts: list[dict[str, str]]) -> list[dict
                 passed=passed,
                 weight=7,
                 detail=f"System property '{name}' should use lowercase dotted naming.",
-                standard="ServiceNow Governance Standards > System Properties",
+                standard="ServiceNow System Property Conventions",
             )
     return checks
 
@@ -847,7 +847,7 @@ def _update_set_naming_assessment(update_set_name: str) -> dict[str, Any]:
         "parts": parts,
         "passed": passed,
         "detail": detail,
-        "standard": "ServiceNow Governance Standards > Update Sets",
+        "standard": "ServiceNow Update Set Conventions",
     }
 
 
@@ -868,7 +868,7 @@ def _script_include_naming_assessment(name: str) -> dict[str, Any]:
         "name": normalized,
         "passed": passed,
         "detail": detail,
-        "standard": "ServiceNow Governance Standards > Script Includes",
+        "standard": "ServiceNow Script Include Conventions",
     }
 
 
@@ -882,7 +882,7 @@ def _business_rule_naming_assessment(name: str) -> dict[str, Any]:
         "name": normalized,
         "passed": passed,
         "detail": detail,
-        "standard": "ServiceNow Governance Standards > Business Rules",
+        "standard": "ServiceNow Business Rule Conventions",
     }
 
 
@@ -896,7 +896,7 @@ def _client_script_naming_assessment(name: str) -> dict[str, Any]:
         "name": normalized,
         "passed": passed,
         "detail": detail,
-        "standard": "ServiceNow Governance Standards > Client Scripts and Catalog Client Scripts",
+        "standard": "ServiceNow Client Script Conventions",
     }
 
 
@@ -1035,7 +1035,7 @@ def _governance_assessment(
         passed=not uses_global_scope and proposed_scope.strip().lower() != "global",
         weight=15,
         detail="Prefer application scope over global scope unless a global artifact is required.",
-        standard="ServiceNow Governance Standards > General Rules",
+        standard="ServiceNow General Governance",
     )
     _score_check(
         checks,
@@ -1043,7 +1043,7 @@ def _governance_assessment(
         passed=len(_normalized_phrase(business_purpose)) >= 15,
         weight=12,
         detail="Document the business purpose of every custom artifact.",
-        standard="ServiceNow Governance Standards > General Rules",
+        standard="ServiceNow General Governance",
     )
     _score_check(
         checks,
@@ -1051,7 +1051,7 @@ def _governance_assessment(
         passed=_contains_any(reuse_plan, ["reuse", "extend", "script include", "subflow", "existing"]),
         weight=14,
         detail="Reuse logic and existing platform assets instead of duplicating them.",
-        standard="ServiceNow Governance Standards > Quick Checklist",
+        standard="ServiceNow General Governance",
     )
     _score_check(
         checks,
@@ -1075,7 +1075,7 @@ def _governance_assessment(
         passed=_update_set_naming_assessment(update_set_name)["passed"],
         weight=10,
         detail=_update_set_naming_assessment(update_set_name)["detail"],
-        standard="ServiceNow Governance Standards > Update Sets",
+        standard="ServiceNow Update Set Conventions",
     )
     _score_check(
         checks,
@@ -1099,7 +1099,7 @@ def _governance_assessment(
         passed=(not uses_client_scripts) or uses_ui_policies,
         weight=7,
         detail="Prefer UI Policies for simple field behavior and keep client scripts minimal.",
-        standard="ServiceNow Governance Standards > Client Scripts and Catalog Client Scripts",
+        standard="ServiceNow Client Script Conventions",
     )
 
     checks.extend(_artifact_naming_checks(parsed_artifacts))

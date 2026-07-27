@@ -1,5 +1,5 @@
 ---
-applyTo: "**"
+applyTo: "src/spie_mcp/server.py,README.md,docs/**/*.md,.github/**/*.md"
 description: "Use when creating or modifying ServiceNow artifacts/tools; enforce naming, scope, and governance-safe payload conventions."
 ---
 # ServiceNow Naming And Governance

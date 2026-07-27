@@ -1,5 +1,5 @@
 ---
-applyTo: "**"
+applyTo: "src/spie_mcp/server.py,README.md,docs/**/*.md,.github/**/*.md"
 description: "Use when creating or modifying ATF records and ATF helper flows; enforce consistent naming, safety, and validation conventions."
 ---
 # ServiceNow ATF Conventions

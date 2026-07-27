@@ -1,5 +1,5 @@
 ---
-applyTo: "**"
+applyTo: "src/spie_mcp/server.py,src/spie_mcp/client.py,README.md,docs/**/*.md,.github/**/*.md"
 description: "Use when creating or modifying ServiceNow MCP tools/flows; enforce read/create/update-only behavior and prohibit record deletion."
 ---
 # ServiceNow No-Delete Policy
