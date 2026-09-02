@@ -1,0 +1,26 @@
+{
+  "name": "xyzzy",
+  "version": "1.0.0",
+  "description": "ServiceNow stdio MCP server with OAuth 2.0 authentication",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JasonVonKrueger/xyzzy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^17.4.2",
+    "zod": "^4.5.4"
+  }
+}
