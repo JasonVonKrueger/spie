@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.pnglogo.png" alt="SPIE" style="width: 400px; height: auto;"/>
+  <img src="docs/logo.png" alt="SPIE" style="width: 400px; height: auto;"/>
 </p>
 
 # ServiceNow MCP Server
