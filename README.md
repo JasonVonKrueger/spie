@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.pnglogo.png" alt="SPIE" style="width: 400px; height: auto;"/>
+</p>
+
 # ServiceNow MCP Server
 
 Node.js stdio MCP server for querying a ServiceNow instance with OAuth 2.0 authentication.
