@@ -63,6 +63,12 @@ The server starts on stdio and exposes two example tools:
 
 - `query_table_records`
 - `get_record_by_sys_id`
+- `create_record`
+- `update_record`
+
+The `create_record` and `update_record` tools only modify records in tables listed in `src/tools/allowed-crud-tables.js`. If a caller requests any other table, the tool returns an error with the current allowed table list.
+
+When creating or updating a Script Include (`sys_script_include`) that defines a function, the tool first searches existing Script Includes for whole function names that are exact or very similar matches. If it finds possible duplicates, it returns an MCP error with a markdown table listing the existing Script Include, API name, possible duplicate function, and direct ServiceNow link. ServiceNow is not modified when possible duplicates are found.
 
 ## Connecting with Claude Desktop
 

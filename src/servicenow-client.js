@@ -86,6 +86,26 @@ export class ServiceNowClient {
     return response.result ?? response;
   }
 
+  async createTableRecord({ table, fields }) {
+    const response = await this.request('POST', `/api/now/table/${encodeURIComponent(table)}`, {
+      body: fields
+    });
+
+    return response.result ?? response;
+  }
+
+  async updateTableRecord({ table, sysId, fields }) {
+    const response = await this.request(
+      'PATCH',
+      `/api/now/table/${encodeURIComponent(table)}/${encodeURIComponent(sysId)}`,
+      {
+        body: fields
+      }
+    );
+
+    return response.result ?? response;
+  }
+
   async request(method, path, options = {}) {
     const accessToken = await this.authClient.getAccessToken();
     const url = new URL(path, this.config.instanceUrl);
@@ -104,8 +124,10 @@ export class ServiceNowClient {
         method,
         headers: {
           Accept: 'application/json',
-          Authorization: ['Bearer', accessToken].join(' ')
-        }
+          Authorization: ['Bearer', accessToken].join(' '),
+          ...(options.body ? { 'Content-Type': 'application/json' } : {})
+        },
+        ...(options.body ? { body: JSON.stringify(options.body) } : {})
       });
     } catch (error) {
       throw new ServiceNowApiError(`Unable to reach ServiceNow at ${url.origin}. ${error.message}`, 0);
