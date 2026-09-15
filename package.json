@@ -1,5 +1,5 @@
 {
-  "name": "xyzzy",
+  "name": "spie",
   "version": "1.0.0",
   "description": "ServiceNow stdio MCP server with OAuth 2.0 authentication",
   "main": "src/index.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/JasonVonKrueger/xyzzy.git"
+    "url": "https://github.com/JasonVonKrueger/spie.git"
   },
   "keywords": [],
   "author": "",

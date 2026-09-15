@@ -15,7 +15,11 @@ export const ALLOWED_CRUD_TABLES = [
   'sys_atf_test_suite',
   'sys_atf_test_result',
   'sys_atf_step_result',
-  'sys_variable_value'
+  'sys_variable_value',
+  'sys_ui_action',
+  'kb_knowledge',
+  'sys_properties',
+  'sys_properties_category'
 ];
 
 export function isAllowedCrudTable(table) {

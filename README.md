@@ -1,8 +1,8 @@
+# ServiceNow Platform Intelligence Engine
+
 <p align="center">
   <img src="docs/logo.png" alt="SPIE" style="width: 400px; height: auto;"/>
 </p>
-
-# ServiceNow MCP Server
 
 Node.js stdio MCP server for querying a ServiceNow instance with OAuth 2.0 authentication.
 
@@ -82,7 +82,7 @@ Claude Desktop can launch stdio MCP servers from its local configuration file. O
 ~/Library/Application Support/Claude/claude_desktop_config.json
 ```
 
-Add this server under `mcpServers`, replacing `/Users/rogerpoore/Dev/xyzzy` with the absolute path to this project if it is different:
+Add this server under `mcpServers`, replacing `/Users/rogerpoore/Dev/spie` with the absolute path to this project if it is different:
 
 ```json
 {
@@ -91,7 +91,7 @@ Add this server under `mcpServers`, replacing `/Users/rogerpoore/Dev/xyzzy` with
          "command": "sh",
          "args": [
             "-c",
-            "cd /Users/rogerpoore/Dev/xyzzy && npm start"
+            "cd /Users/rogerpoore/Dev/spie && npm start"
          ]
       }
    }
