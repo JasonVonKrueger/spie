@@ -3,12 +3,14 @@ import path from 'node:path';
 import { parse } from 'dotenv';
 
 import { ConfigError } from './errors.js';
+import { DEFAULT_REDIRECT_URI } from './interactive-login.js';
 
 export const SUPPORTED_GRANT_TYPES = [
   'client_credentials',
   'password',
   'authorization_code',
-  'refresh_token'
+  'refresh_token',
+  'interactive'
 ];
 
 const BASE_REQUIRED_VARIABLES = [
@@ -22,8 +24,13 @@ export const GRANT_TYPE_REQUIREMENTS = {
   client_credentials: [],
   password: ['SERVICENOW_USERNAME', 'SERVICENOW_PASSWORD'],
   authorization_code: ['SERVICENOW_AUTHORIZATION_CODE', 'SERVICENOW_REDIRECT_URI'],
-  refresh_token: ['SERVICENOW_REFRESH_TOKEN']
+  refresh_token: ['SERVICENOW_REFRESH_TOKEN'],
+  // Browser sign-in (authorization code + PKCE). The client secret is optional (public clients) and the
+  // redirect URI defaults to DEFAULT_REDIRECT_URI.
+  interactive: []
 };
+
+const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 function readEnvFile(envPath) {
   if (!fs.existsSync(envPath)) {
@@ -56,6 +63,22 @@ function normalizeInstanceUrl(instanceUrl) {
   }
 }
 
+function validateLoopbackRedirectUri(redirectUri) {
+  let url;
+  try {
+    url = new URL(redirectUri);
+  } catch {
+    url = null;
+  }
+
+  if (!url || url.protocol !== 'http:' || !LOOPBACK_HOSTNAMES.has(url.hostname) || !url.port) {
+    throw new ConfigError(
+      `For interactive sign-in, SERVICENOW_REDIRECT_URI must be an http loopback URL with an explicit port, for example ${DEFAULT_REDIRECT_URI}.`,
+      ['SERVICENOW_REDIRECT_URI']
+    );
+  }
+}
+
 export function loadServiceNowConfig(options = {}) {
   const envPath = options.envPath ?? path.resolve(process.cwd(), '.env');
   const envFileValues = readEnvFile(envPath);
@@ -77,8 +100,12 @@ export function loadServiceNowConfig(options = {}) {
     );
   }
 
+  const baseRequired =
+    grantType === 'interactive'
+      ? BASE_REQUIRED_VARIABLES.filter((key) => key !== 'SERVICENOW_CLIENT_SECRET')
+      : BASE_REQUIRED_VARIABLES;
   const requiredVariables = [
-    ...BASE_REQUIRED_VARIABLES,
+    ...baseRequired,
     ...GRANT_TYPE_REQUIREMENTS[grantType]
   ];
   const missingVariables = requiredVariables.filter((key) => !getTrimmedValue(source, key));
@@ -90,16 +117,24 @@ export function loadServiceNowConfig(options = {}) {
     );
   }
 
+  const redirectUri =
+    getTrimmedValue(source, 'SERVICENOW_REDIRECT_URI') ||
+    (grantType === 'interactive' ? DEFAULT_REDIRECT_URI : undefined);
+
+  if (grantType === 'interactive') {
+    validateLoopbackRedirectUri(redirectUri);
+  }
+
   return {
     envPath,
     instanceUrl: normalizeInstanceUrl(getTrimmedValue(source, 'SERVICENOW_INSTANCE_URL')),
     clientId: getTrimmedValue(source, 'SERVICENOW_CLIENT_ID'),
-    clientSecret: getTrimmedValue(source, 'SERVICENOW_CLIENT_SECRET'),
+    clientSecret: getTrimmedValue(source, 'SERVICENOW_CLIENT_SECRET') || undefined,
     grantType,
     username: getTrimmedValue(source, 'SERVICENOW_USERNAME') || undefined,
     password: getTrimmedValue(source, 'SERVICENOW_PASSWORD') || undefined,
     authorizationCode: getTrimmedValue(source, 'SERVICENOW_AUTHORIZATION_CODE') || undefined,
-    redirectUri: getTrimmedValue(source, 'SERVICENOW_REDIRECT_URI') || undefined,
+    redirectUri,
     refreshToken: getTrimmedValue(source, 'SERVICENOW_REFRESH_TOKEN') || undefined
   };
 }

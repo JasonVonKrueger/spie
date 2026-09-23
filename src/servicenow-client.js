@@ -48,6 +48,12 @@ export class ServiceNowClient {
       });
     } catch (error) {
       if (error instanceof ServiceNowApiError && error.status === 403) {
+        // A signed-in user may legitimately lack sys_user access (for example a syslog-read-only role).
+        // A 403 still proves connectivity and a valid token, so let the actual tool call be authorized.
+        if (this.config.grantType === 'interactive') {
+          return;
+        }
+
         throw new ServiceNowApiError(
           'Connected to ServiceNow, but the OAuth principal cannot read the validation endpoint (/api/now/table/sys_user). Grant read access to that table or adjust the integration user permissions.',
           403,

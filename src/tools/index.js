@@ -1,6 +1,7 @@
 import { toToolErrorResult } from '../errors.js';
 import { createServiceNowRuntime } from '../runtime.js';
 
+import { registerAnalyzeSyslogTool } from './analyze-syslog.js';
 import { registerCreateRecordTool } from './create-record.js';
 import { registerGetRecordBySysIdTool } from './get-record-by-sys-id.js';
 import { toSuccessResult } from './results.js';
@@ -23,4 +24,5 @@ export function registerServiceNowTools(server, options = {}) {
   registerGetRecordBySysIdTool(server, executeTool);
   registerCreateRecordTool(server, executeTool);
   registerUpdateRecordTool(server, executeTool);
+  registerAnalyzeSyslogTool(server, executeTool);
 }

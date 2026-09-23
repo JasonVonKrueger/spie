@@ -14,6 +14,15 @@ export class AuthError extends Error {
   }
 }
 
+// Raised while an interactive browser sign-in is pending or failed. Deliberately not an AuthError so the
+// runtime does not retry (and open a second browser window).
+export class SignInRequiredError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'SignInRequiredError';
+  }
+}
+
 export class ServiceNowApiError extends Error {
   constructor(message, status, details) {
     super(message);
@@ -35,6 +44,13 @@ export function toToolErrorResult(error) {
     return {
       isError: true,
       content: [{ type: 'text', text: `ServiceNow authentication failed. ${error.message}` }]
+    };
+  }
+
+  if (error instanceof SignInRequiredError) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: error.message }]
     };
   }
 
