@@ -111,23 +111,15 @@ If your user lacks read access to `sys_user`, SPIE's connection check treats tha
 npm start
 ```
 
-The server starts on stdio and exposes these tools:
+The server starts on stdio and exposes these tools. See [docs/tools/](docs/tools/) for the full documentation of each one.
 
-- `query_table_records`
-- `get_record_by_sys_id`
-- `create_record`
-- `update_record`
-- `analyze_syslog`
+- [`query_table_records`](docs/tools/query-table-records.md): query records from a table
+- [`get_record_by_sys_id`](docs/tools/get-record-by-sys-id.md): fetch one record by `sys_id`
+- [`create_record`](docs/tools/create-record.md): create a record in an allowed table
+- [`update_record`](docs/tools/update-record.md): update a record in an allowed table
+- [`analyze_syslog`](docs/tools/analyze-syslog.md): read-only analysis of `syslog` for potential platform problems
 
-The `create_record` and `update_record` tools only modify records in tables listed in `src/tools/allowed-crud-tables.js`. If a caller requests any other table, the tool returns an error with the current allowed table list.
-
-When creating or updating a Script Include (`sys_script_include`) that defines a function, the tool first searches existing Script Includes for whole function names that are exact or very similar matches. If it finds possible duplicates, it returns an MCP error with a markdown table listing the existing Script Include, API name, possible duplicate function, and direct ServiceNow link. ServiceNow is not modified when possible duplicates are found.
-
-### Analyzing syslog
-
-`analyze_syslog` looks for potential platform problems in the `syslog` table. It takes a `startDate` and `endDate` (if either is missing it asks for them) written in natural language, such as `09/23/2026`, `Sept 23, 2026`, `Sept 23` (current year assumed), `today`, or `yesterday`. Numeric dates are read month-first. The range is inclusive, interpreted in UTC, and limited to 14 days; longer ranges are rejected before ServiceNow is contacted.
-
-The tool is read-only: it only runs queries against `syslog` (warning and error records, up to 5,000 newest-first; the report says when it is truncated) and groups them into recurring patterns, categories, volume spikes, and top error sources. `syslog` is not in `ALLOWED_CRUD_TABLES`, so `create_record` and `update_record` cannot modify it either. The OAuth user only needs read access to `syslog`.
+`create_record` and `update_record` only modify tables in `src/tools/allowed-crud-tables.js`; the read tools are not restricted.
 
 ## Connecting with Claude Desktop
 

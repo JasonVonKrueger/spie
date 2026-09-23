@@ -27,7 +27,7 @@ Request flow: `src/index.js` (stdio transport) → `src/server.js` (`McpServer`)
 - **Errors ([src/errors.js](src/errors.js))**: `ConfigError`, `AuthError`, `ServiceNowApiError`, and `toToolErrorResult()`, which maps them to MCP `isError` results. Unknown errors are intentionally reduced to a generic message.
 - **Tools ([src/tools/](src/tools/))**: one file per tool (`query_table_records`, `get_record_by_sys_id`, `create_record`, `update_record`), each exporting a `register*Tool(server, executeTool)` function using `server.tool(name, description, zodShape, handler)`. Handlers wrap work in the shared `executeTool` from `tools/index.js`, which runs it through the runtime and formats via `results.js` (`displayText` in a payload overrides the JSON text output; `isError: true` in a payload yields an MCP error result).
 
-- **`analyze_syslog`** ([src/tools/analyze-syslog.js](src/tools/analyze-syslog.js)): read-only analysis of `syslog` warnings/errors. Dates are parsed by [syslog-date-range.js](src/tools/syslog-date-range.js) (natural language, US month-first, current year assumed, 14-day inclusive UTC cap enforced before any network call); [syslog-analysis.js](src/tools/syslog-analysis.js) holds the pure pattern/category/spike analysis. The table is hardcoded and only `queryTableRecords` is called; keep `syslog` out of `ALLOWED_CRUD_TABLES`.
+- **`analyze_syslog`** ([src/tools/analyze-syslog.js](src/tools/analyze-syslog.js)): read-only analysis of `syslog` warnings/errors. Dates are parsed by [syslog-date-range.js](src/tools/syslog-date-range.js) (natural language, US month-first, current year assumed, 14-day inclusive UTC cap enforced before any network call); [syslog-analysis.js](src/tools/syslog-analysis.js) holds the pure pattern/category/spike analysis. Records are fetched one day at a time (1,500 newest-first per day; days that hit the cap are reported), and a 403 is rethrown with a hint about read access and the Table API auth scope. The table is hardcoded and only `queryTableRecords` is called; keep `syslog` out of `ALLOWED_CRUD_TABLES`.
 
 ### Write-path guardrails
 
@@ -40,5 +40,6 @@ Tests in `test/` use no network: tools are tested by passing a fake `server` (ca
 
 ## Other
 
+- [docs/tools/](docs/tools/) has one markdown file per tool (parameters, behavior, requirements). Update the matching file when a tool's behavior changes.
 - [docs/best-practices.md](docs/best-practices.md) is a generic ServiceNow best-practices reference, unrelated to the code.
 - `.history/` holds editor local-history snapshots (listed in `.gitignore`, though a few files were committed before that); ignore it.

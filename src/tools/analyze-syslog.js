@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
+import { ServiceNowApiError } from '../errors.js';
 import { analyzeSyslogRecords, formatSyslogAnalysis } from './syslog-analysis.js';
-import { DateInputError, MAX_SYSLOG_RANGE_DAYS, resolveSyslogDateRange } from './syslog-date-range.js';
+import { DateInputError, MAX_SYSLOG_RANGE_DAYS, eachDay, resolveSyslogDateRange } from './syslog-date-range.js';
 
 const PAGE_SIZE = 500;
-const MAX_RECORDS = 5000;
+// Each day is fetched separately with its own cap, so one noisy day cannot crowd out the others.
+const MAX_RECORDS_PER_DAY = 1500;
 const SYSLOG_FIELDS = ['sys_created_on', 'level', 'source', 'message'];
 
 function textResult(text, isError = false) {
@@ -22,31 +24,56 @@ function buildSyslogQuery(range) {
   ].join('^');
 }
 
-// Read-only by construction: this tool only ever calls client.queryTableRecords against the syslog
-// table. The table is fixed (not an argument), and syslog is not in ALLOWED_CRUD_TABLES.
-async function fetchSyslogRecords(client, range) {
-  const query = buildSyslogQuery(range);
+async function fetchDayRecords(client, day) {
+  const query = buildSyslogQuery({ startDateTime: `${day} 00:00:00`, endDateTime: `${day} 23:59:59` });
   const records = [];
-  let truncated = false;
 
-  while (records.length < MAX_RECORDS) {
+  while (records.length < MAX_RECORDS_PER_DAY) {
     const page = await client.queryTableRecords({
       table: 'syslog',
       query,
       fields: SYSLOG_FIELDS,
-      limit: Math.min(PAGE_SIZE, MAX_RECORDS - records.length),
+      limit: Math.min(PAGE_SIZE, MAX_RECORDS_PER_DAY - records.length),
       offset: records.length
     });
 
     records.push(...page);
 
     if (page.length < PAGE_SIZE) {
-      return { records, truncated };
+      return { records, truncated: false };
     }
   }
 
-  truncated = true;
-  return { records, truncated };
+  return { records, truncated: true };
+}
+
+// Read-only by construction: this tool only ever calls client.queryTableRecords against the syslog
+// table. The table is fixed (not an argument), and syslog is not in ALLOWED_CRUD_TABLES.
+export async function fetchSyslogRecords(client, range) {
+  const records = [];
+  const truncatedDays = [];
+
+  try {
+    for (const day of eachDay(range.startDate, range.endDate)) {
+      const result = await fetchDayRecords(client, day);
+      records.push(...result.records);
+      if (result.truncated) {
+        truncatedDays.push(day);
+      }
+    }
+  } catch (error) {
+    if (error instanceof ServiceNowApiError && error.status === 403) {
+      throw new ServiceNowApiError(
+        `Access to the syslog table was denied (403). The signed-in user needs read access to syslog and, if you use an OAuth integration, its Auth scope must include the Table API. ${error.message}`,
+        403,
+        error.details
+      );
+    }
+
+    throw error;
+  }
+
+  return { records, truncatedDays };
 }
 
 export function registerAnalyzeSyslogTool(server, executeTool, options = {}) {
@@ -76,15 +103,18 @@ export function registerAnalyzeSyslogTool(server, executeTool, options = {}) {
       }
 
       return executeTool(async (client) => {
-        const { records, truncated } = await fetchSyslogRecords(client, range);
+        const { records, truncatedDays } = await fetchSyslogRecords(client, range);
         const analysis = analyzeSyslogRecords(records, range);
 
         return {
           table: 'syslog',
           range,
-          truncated,
+          truncatedDays,
           analysis,
-          displayText: formatSyslogAnalysis(analysis, range, { truncated, maxRecords: MAX_RECORDS })
+          displayText: formatSyslogAnalysis(analysis, range, {
+            truncatedDays,
+            maxRecordsPerDay: MAX_RECORDS_PER_DAY
+          })
         };
       });
     }

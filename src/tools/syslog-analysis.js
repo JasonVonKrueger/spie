@@ -1,3 +1,5 @@
+import { eachDay } from './syslog-date-range.js';
+
 const LEVEL_NAMES = { 0: 'Info', 1: 'Warning', 2: 'Error', 3: 'Debug' };
 
 const MAX_PATTERNS = 15;
@@ -163,19 +165,6 @@ function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function eachDay(startDate, endDate) {
-  const days = [];
-  const cursor = new Date(`${startDate}T00:00:00Z`);
-  const last = new Date(`${endDate}T00:00:00Z`);
-
-  while (cursor <= last) {
-    days.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  return days;
-}
-
 /**
  * Looks for potential platform problems in warning/error syslog records.
  * `records` need `sys_created_on`, `level`, `source` and `message`.
@@ -284,7 +273,7 @@ function cell(value) {
     .trim();
 }
 
-export function formatSyslogAnalysis(analysis, range, { truncated, maxRecords }) {
+export function formatSyslogAnalysis(analysis, range, { truncatedDays = [], maxRecordsPerDay }) {
   const lines = [
     `# Syslog analysis: ${range.startDate} to ${range.endDate} (${range.days} day${range.days === 1 ? '' : 's'}, UTC)`,
     '',
@@ -295,10 +284,10 @@ export function formatSyslogAnalysis(analysis, range, { truncated, maxRecords })
     }`
   ];
 
-  if (truncated) {
+  if (truncatedDays.length > 0) {
     lines.push(
       '',
-      `> **Results truncated.** Only the newest ${maxRecords} matching records were analyzed, so the oldest part of the range is missing. Narrow the date range for complete coverage.`
+      `> **Partial coverage on ${truncatedDays.length} day${truncatedDays.length === 1 ? '' : 's'} (${truncatedDays.join(', ')}).** Only the newest ${maxRecordsPerDay} warning/error records of each of those days were analyzed, so their earliest hours are missing and their counts are minimums. Other days were analyzed in full.`
     );
   }
 

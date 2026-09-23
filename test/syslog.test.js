@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { registerAnalyzeSyslogTool } from '../src/tools/analyze-syslog.js';
+import { ServiceNowApiError } from '../src/errors.js';
+import { fetchSyslogRecords, registerAnalyzeSyslogTool } from '../src/tools/analyze-syslog.js';
 import { ALLOWED_CRUD_TABLES } from '../src/tools/allowed-crud-tables.js';
 import { analyzeSyslogRecords, normalizeMessage } from '../src/tools/syslog-analysis.js';
 import { parseDateInput, resolveSyslogDateRange } from '../src/tools/syslog-date-range.js';
@@ -156,19 +157,20 @@ test('analyze_syslog only reads the syslog table and reports findings', async ()
 
   await registration.tool.handler({ startDate: 'Sept 20', endDate: '09/23' });
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].table, 'syslog');
-  assert.match(calls[0].query, /sys_created_on>=2026-09-20 00:00:00/);
-  assert.match(calls[0].query, /sys_created_on<=2026-09-23 23:59:59/);
+  // One query per day in the range.
+  assert.equal(calls.length, 4);
+  assert.ok(calls.every((call) => call.table === 'syslog'));
+  assert.match(calls[0].query, /sys_created_on>=2026-09-20 00:00:00\^sys_created_on<=2026-09-20 23:59:59/);
+  assert.match(calls[3].query, /sys_created_on>=2026-09-23 00:00:00\^sys_created_on<=2026-09-23 23:59:59/);
   assert.match(calls[0].query, /level=1\^ORlevel=2/);
-  assert.equal(payload.truncated, false);
+  assert.deepEqual(payload.truncatedDays, []);
   assert.equal(payload.analysis.totalRecords, 3);
   assert.equal(payload.analysis.findings[0].count, 2);
   assert.match(payload.displayText, /Script errors/);
   assert.match(payload.displayText, /Performance/);
 });
 
-test('analyze_syslog pages through results and flags truncation at the record cap', async () => {
+test('analyze_syslog caps each day separately so a noisy day cannot crowd out other days', async () => {
   const registration = registerTool();
   const calls = [];
   const fullPage = Array.from({ length: 500 }, (_, index) => ({
@@ -177,7 +179,9 @@ test('analyze_syslog pages through results and flags truncation at the record ca
     source: 'src',
     message: `Failure ${index}`
   }));
-  const client = createReadOnlyClient(Array.from({ length: 10 }, () => fullPage), calls);
+  const quietDay = [{ sys_created_on: '2026-09-23 10:00:00', level: '1', source: 'src', message: 'quiet' }];
+  // Day 1 returns full pages until its cap; day 2 returns a short page.
+  const client = createReadOnlyClient([fullPage, fullPage, fullPage, quietDay], calls);
 
   let payload;
   registerAnalyzeSyslogTool(
@@ -189,15 +193,39 @@ test('analyze_syslog pages through results and flags truncation at the record ca
     { now: () => NOW }
   );
 
-  await registration.tool.handler({ startDate: '09/20/2026', endDate: '09/23/2026' });
+  await registration.tool.handler({ startDate: '09/22/2026', endDate: '09/23/2026' });
 
-  assert.equal(calls.length, 10);
   assert.deepEqual(
-    calls.map((call) => call.offset),
-    [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500]
+    calls.map((call) => [call.query.match(/sys_created_on>=(\S+)/)[1], call.offset]),
+    [
+      ['2026-09-22', 0],
+      ['2026-09-22', 500],
+      ['2026-09-22', 1000],
+      ['2026-09-23', 0]
+    ]
   );
-  assert.equal(payload.truncated, true);
-  assert.match(payload.displayText, /truncated/i);
+  assert.deepEqual(payload.truncatedDays, ['2026-09-22']);
+  assert.equal(payload.analysis.totalRecords, 1501);
+  assert.match(payload.displayText, /Partial coverage on 1 day \(2026-09-22\)/);
+});
+
+test('analyze_syslog explains a 403 on the syslog table', async () => {
+  const client = {
+    async queryTableRecords() {
+      throw new ServiceNowApiError('ServiceNow API request failed (403). User Not Authorized', 403);
+    }
+  };
+
+  await assert.rejects(
+    fetchSyslogRecords(client, { startDate: '2026-09-23', endDate: '2026-09-23' }),
+    (error) => {
+      assert.ok(error instanceof ServiceNowApiError);
+      assert.equal(error.status, 403);
+      assert.match(error.message, /read access to syslog/);
+      assert.match(error.message, /Table API/);
+      return true;
+    }
+  );
 });
 
 test('syslog is not a writable table for create_record or update_record', () => {
